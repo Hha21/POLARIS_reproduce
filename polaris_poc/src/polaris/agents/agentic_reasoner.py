@@ -723,7 +723,7 @@ class AgenticLLMReasoner(ReasoningInterface):
         reasoning_type: ReasoningType,
         kb_query_interface: Optional[KnowledgeQueryInterface] = None,
         dt_interface: Optional[DigitalTwinInterface] = None,
-        model: str = "gemini-2.0-flash",
+        model: str = "gemini-2.5-flash",
         max_tokens: int = 8192,
         temperature: float = 0.3,
         max_tool_calls: int = 5,
@@ -1439,7 +1439,11 @@ Please analyze the system context and make adaptation decisions in JSON format:
                 self.logger.warning(f"Gemini call attempt {attempt + 1} failed: {e}")
                 if attempt + 1 == self.max_retries:
                     raise
-                await asyncio.sleep(2**attempt)  # Exponential backoff
+                # Respect the API's suggested retry delay if present, otherwise backoff
+                import re as _re
+                _delay_match = _re.search(r"retryDelay.*?'(\d+)s'", str(e))
+                _sleep = int(_delay_match.group(1)) if _delay_match else 2 ** attempt
+                await asyncio.sleep(_sleep)
 
         raise Exception("Gemini call failed after all retries")
 

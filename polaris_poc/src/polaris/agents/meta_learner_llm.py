@@ -1154,7 +1154,7 @@ def create_meta_learner_agent(
     config_path: str,
     nats_url: Optional[str] = None,
     update_interval_seconds: float = 660.0,  # Conservative 10-minute interval
-    model: str = "gemini-2.0-flash",
+    model: str = "gemini-2.5-flash",
     max_change_percent: float = 10.0,  # Conservative 10% max change
     logger: Optional[logging.Logger] = None,
 ) -> MetaLearnerLLM:
