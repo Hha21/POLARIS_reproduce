@@ -22,9 +22,8 @@ import yaml
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-import google.generativeai as genai
-import google.api_core
-from google.generativeai import types
+import google.genai as genai
+from google.genai import types
 
 import requests
 import nats
@@ -84,7 +83,7 @@ class MetaLearnerLLM(BaseMetaLearnerAgent):
         # Initialize parent BaseMetaLearnerAgent
         super().__init__(agent_id, config_path, nats_url, logger)
 
-        self.api_key = "YOUR API KEY"
+        self.api_key = api_key or os.environ.get("GEMINI_API_KEY", "")
         self.prompt_config_path = Path(prompt_config_path)
         self.update_interval = update_interval_seconds
         self.model = model
@@ -98,8 +97,7 @@ class MetaLearnerLLM(BaseMetaLearnerAgent):
 
         # Configure the Gemini client
         try:
-            genai.configure(api_key=self.api_key)
-            self.client = genai.GenerativeModel(self.model)
+            self.client = genai.Client(api_key=self.api_key)
             self.logger.info(f"Initialized MetaLearnerLLM with Gemini model {model}")
         except Exception as e:
             self.logger.error(f"Failed to configure Gemini client: {e}")
@@ -298,7 +296,7 @@ class MetaLearnerLLM(BaseMetaLearnerAgent):
         """Call the Gemini API to generate strategic updates."""
         full_prompt = f"{system_prompt}\n\n{user_prompt}"
 
-        generation_config = types.GenerationConfig(
+        config = types.GenerateContentConfig(
             temperature=self.temperature,
             max_output_tokens=self.max_tokens,
             response_mime_type="application/json",
@@ -306,9 +304,10 @@ class MetaLearnerLLM(BaseMetaLearnerAgent):
 
         try:
             self.logger.info("Calling Gemini API for strategic analysis...")
-            response = await self.client.generate_content_async(
-                contents=[full_prompt],
-                generation_config=generation_config,
+            response = await self.client.aio.models.generate_content(
+                model=self.model,
+                contents=full_prompt,
+                config=config,
             )
 
             response_text = response.text.strip()
@@ -317,7 +316,7 @@ class MetaLearnerLLM(BaseMetaLearnerAgent):
 
             return response_text
 
-        except (google.api_core.exceptions.GoogleAPIError, ValueError) as e:
+        except (genai.errors.ClientError, ValueError) as e:
             self.logger.error(f"Gemini API call failed: {e}")
             raise
 
