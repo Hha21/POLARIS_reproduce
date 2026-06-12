@@ -99,3 +99,51 @@ export GEMINI_API_KEY="your-key"
 cd polaris_poc
 ./start_polaris_swim_system.sh
 ```
+
+---
+
+## 13/06/26
+
+### First reproduction run complete
+
+Run label: `SWIM_agentic_flash25_repro1` (gemini-2.5-flash, full POLARIS configuration).
+
+Results copied from the Docker container:
+```bash
+docker cp swim:/headless/seams-swim/results/SWIM/sim-0.sca polaris_poc/results_swim/results/SWIM_agentic_flash25_repro1/
+docker cp swim:/headless/seams-swim/results/SWIM/sim-0.vec polaris_poc/results_swim/results/SWIM_agentic_flash25_repro1/
+```
+
+**Key results (evaluation window 900s–6300s):**
+
+| Metric | Value |
+|---|---|
+| Total utility | 3303 |
+| % late responses | 1.0% |
+| Avg servers allocated | 3.00 |
+
+The system kept all 3 servers active throughout the run (initialServers=3 = maxServers=3 in this config, so no scaling decisions were taken). One brief SLA violation event occurred around t=4900s where the dimmer was reduced and a response-time spike appeared, but the system recovered quickly.
+
+### Reproduction plot
+
+A 5-panel black/white figure was generated to match Figure 4 of the paper:
+
+```bash
+python reproduce/plot_repro.py
+# Output: reproduce/repro1_5panel.pdf  and  reproduce/repro1_5panel.png
+```
+
+Script: `reproduce/plot_repro.py`  
+Output: `reproduce/repro1_5panel.{pdf,png}`
+
+Panels (shared time axis 900s–6300s):
+1. requests/s — ClarkNet workload trace, ramps from ~10 to ~60 req/s
+2. servers — solid=active, dashed=allocated (both constant at 3)
+3. dimmer — stays at 1.0, brief dip to ~0.6 around t=4900s
+4. resp. time (s) — well below 0.75s threshold except one spike
+5. cum. utility — monotonically increasing, final value ≈ 3303
+
+**Note on pandas:** `pandas` was not in the original requirements. Install if missing:
+```bash
+pip install pandas
+```

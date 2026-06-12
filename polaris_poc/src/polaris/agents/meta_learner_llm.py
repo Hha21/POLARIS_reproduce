@@ -75,7 +75,7 @@ class MetaLearnerLLM(BaseMetaLearnerAgent):
         update_interval_seconds: float = 300.0,  # 5 minutes
         model: str = "gemini-2.5-flash",  # Updated model for Gemini
         temperature: float = 0.3,
-        max_tokens: int = 1024,
+        max_tokens: int = 4096,
         kb_request_timeout: float = 30.0,
         max_change_percent: float = 10.0,  # More conservative - only 10% change per update
         logger: Optional[logging.Logger] = None,
