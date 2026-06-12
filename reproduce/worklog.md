@@ -59,13 +59,43 @@ The paper's codebase uses `gemini-2.0-flash` for the agentic reasoner. As of Jun
 Please update your code to use a newer model.
 ```
 
-**Fix:** Updated `polaris_poc/src/config/agentic_reasoner_config.yaml` to use `gemini-2.5-flash` instead, which is the current equivalent free-tier model.
+**Fix:** The model string `"gemini-2.0-flash"` was hardcoded in 4 source files as default parameter values, as well as in the config. All updated to `"gemini-2.5-flash"`:
 
-```yaml
-# Before
-model: "gemini-2.0-flash"
-# After
-model: "gemini-2.5-flash"
+- `polaris_poc/src/config/agentic_reasoner_config.yaml`
+- `polaris_poc/src/polaris/agents/agentic_reasoner.py`
+- `polaris_poc/src/polaris/agents/agentic_reasoner_switch.py`
+- `polaris_poc/src/polaris/agents/llm_reasoner_gemini.py`
+- `polaris_poc/src/polaris/agents/meta_learner_llm.py`
+
+---
+
+## 12/06/26
+
+### Meta-learner SDK migration (`google.generativeai` → `google.genai`)
+
+The meta-learner was failing on every cycle with `400 API_KEY_INVALID`. Two compounding bugs:
+
+1. **Hardcoded placeholder key**: `meta_learner_llm.py` line 87 set `self.api_key = "YOUR API KEY"`, ignoring the passed parameter and the `GEMINI_API_KEY` environment variable entirely.
+2. **Deprecated SDK**: The file imported `google.generativeai` (old SDK, no longer maintained), which uses a gRPC transport that no longer authenticates correctly. The rest of the codebase uses `google.genai` (new SDK, REST-based), which works fine with the same key.
+
+**Fix** — minimal changes to `meta_learner_llm.py`:
+- Imports: `import google.generativeai as genai` → `import google.genai as genai`
+- Key: `self.api_key = "YOUR API KEY"` → `self.api_key = api_key or os.environ.get("GEMINI_API_KEY", "")`
+- Client init: `genai.configure(...); genai.GenerativeModel(...)` → `genai.Client(api_key=...)`
+- API call: `client.generate_content_async(...)` → `client.aio.models.generate_content(model=..., config=GenerateContentConfig(...))`
+- Exception type: `google.api_core.exceptions.GoogleAPIError` → `genai.errors.ClientError`
+
+### Startup script now manages Docker containers
+
+`start_polaris_swim_system.sh` previously required the SWIM and NATS Docker containers to be started manually before running. Updated to handle this automatically:
+
+- Before creating any tmux windows, the script checks whether `polaris-nats` and `swim` containers exist and are running, starting or creating them as needed.
+- After starting the SWIM container, waits 8s for the VNC desktop to initialise, then launches the OMNeT++ simulation via `docker exec` and waits for port 4242 to open.
+- The NATS tmux window now shows `docker logs -f polaris-nats` rather than attempting a conflicting `docker run`.
+
+**To run a full experiment (updated):**
+```bash
+export GEMINI_API_KEY="your-key"
+cd polaris_poc
+./start_polaris_swim_system.sh
 ```
-
-The meta-learner (`meta_learner_llm.py`) already defaults to `gemini-2.5-flash` so no change needed there.
